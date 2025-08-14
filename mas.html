@@ -1,0 +1,368 @@
+<!-- Save as index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>House Tax Receipt Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 10px;
+    }
+    .container {
+      width: 100%;
+      max-width: 500px;
+      margin: auto;
+      background: #fff;
+      padding: 15px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      box-sizing: border-box;
+    }
+    input, select, button {
+      width: 100%;
+      margin: 6px 0;
+      padding: 8px;
+      font-size: 15px;
+      box-sizing: border-box;
+    }
+    .receipt {
+      display: none;
+      width: 100%;
+      max-width: 58mm;
+      margin: auto;
+      font-size: 12px;
+      background: white;
+      padding: 10px;
+      box-sizing: border-box;
+      border: 1px solid #000; /* Added outline border */
+    }
+    .receipt h2 {
+      text-align: center;
+      font-size: 13px;
+      margin: 4px 0 2px 0;
+      font-weight: bold;
+    }
+    .receipt h3 {
+      text-align: center;
+      font-size: 11px;
+      margin: 0 0 5px 0;
+      font-weight: normal;
+      line-height: 1.2;
+    }
+    .receipt hr {
+      border: none;
+      border-top: 1px dashed #000;
+      margin: 4px 0;
+    }
+    .receipt table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .receipt td {
+      padding: 4px;
+      font-size: 11px;
+    }
+    .view-table {
+      margin-top: 10px;
+      font-size: 12px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .view-table th, .view-table td {
+      border: 1px solid #ccc;
+      padding: 4px;
+    }
+    @media print {
+      @page {
+        size: 58mm 12in;
+        margin: 0;
+      }
+      body * {
+        visibility: hidden;
+      }
+      .receipt, .receipt * {
+        visibility: visible;
+      }
+      .receipt {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 58mm;
+        font-size: 11px;
+      }
+      .print {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h3>House Tax Receipt Generator</h3>
+    <input type="file" id="excelFile" accept=".xlsx, .xls" />
+
+    <select id="filterKey">
+      <option value="ASMTNo">ASMTNo</option>
+      <option value="House Number">House Number</option>
+      <option value="Owner Name">Owner Name</option>
+      <option value="MobileNo">MobileNo</option>
+    </select>
+
+    <select id="filterValue" onchange="fillForm()">
+      <option value="">Select Value</option>
+    </select>
+
+    <input type="text" id="asmtNo" placeholder="ASMTNo" />
+    <input type="text" id="houseNo" placeholder="House Number" />
+    <input type="text" id="ownerName" placeholder="Owner Name" />
+    <input type="text" id="mobileNo" placeholder="Mobile No" />
+    <input type="number" id="houseTax" placeholder="House Tax" />
+    <input type="number" id="libraryCess" placeholder="Library Cess" />
+    <input type="number" id="drainageTax" placeholder="Drainage Cess" />
+    <input type="number" id="waterTax" placeholder="Water Cess" />
+    <input type="number" id="lightingTax" placeholder="Lighting Cess" />
+    <input type="datetime-local" id="dateTime" placeholder="Date & Time" />
+
+    <button onclick="generateReceipt()">Generate Receipt</button>
+    <button onclick="viewReceipts()">📄 View All Receipts</button>
+
+    <div id="allReceiptsContainer" style="display:none; background:#fff; padding:10px;"></div>
+  </div>
+
+  <div class="receipt" id="receipt">
+    <div style="text-align:center;">
+      <img src="c2043fa6-8f5b-4984-a19c-dbe1634f85b8.png" alt="House Tax Logo"
+           style="width: 100%; max-width: 180px; display: block; margin: 0 auto 5px auto;" />
+    </div>
+    <h2>Government of Telangana</h2>
+    <h3>Panchayati Raj & Rural<br />Employment Department</h3>
+    <hr />
+    <table>
+      <tr><td><strong>Receipt No:</strong></td><td id="r_receiptNo"></td></tr>
+      <tr><td><strong>Date:</strong></td><td id="r_dateTime"></td></tr>
+      <tr><td><strong>ASMT No:</strong></td><td id="r_asmtNo"></td></tr>
+      <tr><td><strong>House No:</strong></td><td id="r_houseNo"></td></tr>
+      <tr><td><strong>Owner:</strong></td><td id="r_ownerName"></td></tr>
+      <tr><td><strong>Mobile:</strong></td><td id="r_mobileNo"></td></tr>
+    </table>
+    <hr />
+    <table>
+      <tr><td>House Tax:</td><td id="r_houseTax"></td></tr>
+      <tr><td>Library Cess:</td><td id="r_libraryCess"></td></tr>
+      <tr><td>Drainage Cess:</td><td id="r_drainageTax"></td></tr>
+      <tr><td>Water Cess:</td><td id="r_waterTax"></td></tr>
+      <tr><td>Lighting Cess:</td><td id="r_lightingTax"></td></tr>
+      <tr><td><strong>Total:</strong></td><td id="r_total"></td></tr>
+    </table>
+    <hr />
+    <p style="text-align:center; font-size:11px;">
+      This is an official receipt issued by Sohail Gram Panchayat, Sohail Mandal, Sohail District.
+    </p>
+    <p style="font-size:11px; text-align:left;">
+      <strong>Bill Collector:</strong> XYZ<br />
+      <strong>Designation:</strong> XYZ<br />
+      <strong>Mobile:</strong> 9121941192
+    </p>
+    <p style="margin-top: 30px; font-size: 11px;">
+      __________________________<br />
+      Signature of Bill Collector
+    </p>
+    <button class="print" onclick="window.print()">🖨️ Print Receipt</button>
+  </div>
+
+  <script>
+    let excelData = [];
+
+    document.getElementById('excelFile').addEventListener('change', function(e) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        excelData = XLSX.utils.sheet_to_json(worksheet);
+        populateDropdown();
+      };
+      reader.readAsArrayBuffer(e.target.files[0]);
+    });
+
+    function populateDropdown() {
+      const key = document.getElementById("filterKey").value;
+      const dropdown = document.getElementById("filterValue");
+      dropdown.innerHTML = '<option value="">Select Value</option>';
+      const unique = [...new Set(excelData.map(item => item[key]))];
+      unique.forEach(val => {
+        const option = document.createElement("option");
+        option.value = val;
+        option.text = val;
+        dropdown.add(option);
+      });
+    }
+
+    document.getElementById("filterKey").addEventListener("change", populateDropdown);
+
+    function fillForm() {
+      const key = document.getElementById("filterKey").value;
+      const value = document.getElementById("filterValue").value;
+      const record = excelData.find(row => row[key] == value);
+      if (record) {
+        document.getElementById("asmtNo").value = record.ASMTNo || "";
+        document.getElementById("houseNo").value = record["House Number"] || "";
+        document.getElementById("ownerName").value = record["Owner Name"] || "";
+        document.getElementById("mobileNo").value = record.MobileNo || "";
+        document.getElementById("houseTax").value = record["House Tax"] || 0;
+        document.getElementById("libraryCess").value = record["Library Cess"] || 0;
+        document.getElementById("drainageTax").value = record["Drainage Tax"] || 0;
+        document.getElementById("waterTax").value = record["Water Tax"] || 0;
+        document.getElementById("lightingTax").value = record["Lighting Tax"] || 0;
+      }
+    }
+
+    function generateReceipt() {
+      const getVal = id => document.getElementById(id).value;
+      const asmtNo = getVal("asmtNo");
+
+      if (!asmtNo) {
+        alert("ASMT No is required to generate receipt.");
+        return;
+      }
+
+      const receiptKey = "receipt_2025_" + asmtNo;
+      let receiptNo = localStorage.getItem(receiptKey);
+
+      if (receiptNo) {
+        alert("❗ Receipt already generated for this ASMT No.\nPlease visit '📄 View All Receipts' to reprint.");
+        return;
+      }
+
+      let currentNo = localStorage.getItem("receiptNumber2025") || 0;
+      currentNo = parseInt(currentNo) + 1;
+      receiptNo = currentNo + "/2025";
+      localStorage.setItem("receiptNumber2025", currentNo);
+      localStorage.setItem(receiptKey, receiptNo);
+
+      const dt = new Date(getVal("dateTime"));
+      const formattedDate = `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
+
+      document.getElementById("r_receiptNo").textContent = receiptNo;
+      document.getElementById("r_asmtNo").textContent = asmtNo;
+      document.getElementById("r_houseNo").textContent = getVal("houseNo");
+      document.getElementById("r_ownerName").textContent = getVal("ownerName");
+      document.getElementById("r_mobileNo").textContent = getVal("mobileNo");
+      document.getElementById("r_dateTime").textContent = formattedDate;
+
+      const taxes = ["houseTax", "libraryCess", "drainageTax", "waterTax", "lightingTax"];
+      let total = 0;
+      taxes.forEach(tax => {
+        const val = parseFloat(getVal(tax)) || 0;
+        document.getElementById("r_" + tax).textContent = "₹" + val.toFixed(2);
+        total += val;
+      });
+      document.getElementById("r_total").textContent = "₹" + total.toFixed(2);
+      document.getElementById("receipt").style.display = "block";
+
+      const receiptData = {
+        receiptNo,
+        date: formattedDate,
+        asmtNo: asmtNo,
+        houseNo: getVal("houseNo"),
+        ownerName: getVal("ownerName"),
+        mobileNo: getVal("mobileNo"),
+        houseTax: getVal("houseTax"),
+        libraryCess: getVal("libraryCess"),
+        drainageTax: getVal("drainageTax"),
+        waterTax: getVal("waterTax"),
+        lightingTax: getVal("lightingTax"),
+        total: total.toFixed(2)
+      };
+
+      let storedReceipts = JSON.parse(localStorage.getItem("allReceipts2025") || "[]");
+      storedReceipts.push(receiptData);
+      localStorage.setItem("allReceipts2025", JSON.stringify(storedReceipts));
+    }
+
+    function viewReceipts() {
+      const container = document.getElementById("allReceiptsContainer");
+      const data = JSON.parse(localStorage.getItem("allReceipts2025") || "[]");
+      if (!data.length) {
+        container.innerHTML = "<p>No receipts found.</p>";
+        container.style.display = "block";
+        return;
+      }
+
+      let html = "<table class='view-table'><tr>" +
+                 "<th>Receipt No</th><th>Date</th><th>ASMT No</th><th>Owner</th><th>Total</th><th>Reprint</th></tr>";
+      data.forEach(r => {
+        html += `<tr>
+          <td>${r.receiptNo}</td>
+          <td>${r.date}</td>
+          <td>${r.asmtNo}</td>
+          <td>${r.ownerName}</td>
+          <td>₹${r.total}</td>
+          <td><button onclick="reprint('${r.receiptNo}')">Reprint</button></td>
+        </tr>`;
+      });
+      html += "</table>";
+      container.innerHTML = html;
+      container.style.display = "block";
+    }
+
+    function reprint(receiptNo) {
+      const data = JSON.parse(localStorage.getItem("allReceipts2025") || "[]");
+      const record = data.find(r => r.receiptNo === receiptNo);
+      if (!record) {
+        alert("Receipt not found!");
+        return;
+      }
+
+      document.getElementById("r_receiptNo").textContent = record.receiptNo;
+      document.getElementById("r_asmtNo").textContent = record.asmtNo;
+      document.getElementById("r_houseNo").textContent = record.houseNo;
+      document.getElementById("r_ownerName").textContent = record.ownerName;
+      document.getElementById("r_mobileNo").textContent = record.mobileNo;
+      document.getElementById("r_dateTime").textContent = record.date;
+
+      document.getElementById("r_houseTax").textContent = "₹" + parseFloat(record.houseTax).toFixed(2);
+      document.getElementById("r_libraryCess").textContent = "₹" + parseFloat(record.libraryCess).toFixed(2);
+      document.getElementById("r_drainageTax").textContent = "₹" + parseFloat(record.drainageTax).toFixed(2);
+      document.getElementById("r_waterTax").textContent = "₹" + parseFloat(record.waterTax).toFixed(2);
+      document.getElementById("r_lightingTax").textContent = "₹" + parseFloat(record.lightingTax).toFixed(2);
+      document.getElementById("r_total").textContent = "₹" + parseFloat(record.total).toFixed(2);
+
+      document.getElementById("receipt").style.display = "block";
+      window.scrollTo(0, 0);
+    }
+
+    function getDateTimeFromGPS() {
+      if (!navigator.geolocation) {
+        fallbackTime();
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const gpsTime = new Date(position.timestamp);
+          document.getElementById("dateTime").value = gpsTime.toISOString().slice(0, 16);
+        },
+        error => {
+          fallbackTime();
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    }
+
+    function fallbackTime() {
+      const localTime = new Date();
+      document.getElementById("dateTime").value = localTime.toISOString().slice(0, 16);
+    }
+
+    window.onload = getDateTimeFromGPS;
+  </script>
+</body>
+</html>
